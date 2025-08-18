@@ -6,4 +6,4 @@ This example provides a base setup for using data platform technologies, such as
 - Redis
 - MongoDB
 - Kafka
-- Minio
+- Minio (TODO)

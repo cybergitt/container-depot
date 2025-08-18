@@ -1,225 +1,159 @@
 services:
-  dev-mysql:
+  mysql:
     image: bitnami/mysql:latest
-    # This container_name can be used for internal connections between containers (running on the same docker virtual network)
-    container_name: dev-mysql
-    ports:
-      # This mapping means that requests sent to the ${MYSQL_PORT} on the host machine will be forwarded to port 3306 in the dev-mysql container. This setup allows users to access the MySQL database from outside the container, such as from a local machine or another service.
-      - '${MYSQL_PORT}:3306'
+    container_name: mysql
+    restart: unless-stopped
     environment:
-      # Setup environment variables for container
-      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_USER=${MYSQL_USERNAME}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
-    volumes:
-      # Syncs msyql data from inside container to host machine, to keep them accross container restarts
-      - '${DATA_DIR}/components/mysql/data:/bitnami/mysql/data'
-      # Add custom script to init db
-      - './scripts/mysql-init.sql:/docker-entrypoint-initdb.d/init.sql'
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin:latest
-    container_name: dev-phpmyadmin
-    # The depends_on option in Docker specifies that a container should be started only after the specified dependent container (e.g., dev-mysql) has been started (but not ensuring that it is ready)
-    depends_on:
-      - dev-mysql
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     ports:
-      - '${PHPMYADMIN_PORT}:80'
-    environment:
-      - PMA_HOST=dev-mysql
-      # use internal port for internal connections, not exposed port ${MYSQL_PORT}
-      - PMA_PORT=3306
-      - PMA_USER=${MYSQL_USERNAME}
-      - PMA_PASSWORD=${MYSQL_PASSWORD}
+      - "3306:3306"
+    volumes:
+      - mysql_data:/bitnami/mysql
+    networks:
+      - data-platform-net
 
-  #=======
-
-  dev-postgresql:
+  postgresql:
     image: bitnami/postgresql:latest
-    container_name: dev-postgresql
-    ports:
-      - '${POSTGRES_PORT}:5432'
+    container_name: postgresql
+    restart: unless-stopped
     environment:
-      - POSTGRESQL_USERNAME=${POSTGRES_USERNAME}
-      - POSTGRESQL_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRESQL_DATABASE=${POSTGRES_DATABASE}
-    volumes:
-      # This setup will ensure that PostgreSQL data from inside container is synced to host machine, enabling persistence across container restarts.
-      - '${DATA_DIR}/components/postgresql/data:/bitnami/postgresql/data'
-      # Most relational databases support a special docker-entrypoint-initdb.d folder. This folder is used to initialise the database automatically when the container is first created.
-      # We can put .sql or .sh scripts there, and Docker will automatically, here ./scripts/postgres-init.sql from host machine be automatically copied to the Docker container during the build and then run it
-      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: dev-pgadmin
-    depends_on:
-      - dev-postgresql
+      - POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}
+      - POSTGRESQL_PASSWORD=${POSTGRESQL_PASSWORD}
+      - POSTGRESQL_DATABASE=${POSTGRESQL_DATABASE}
     ports:
-      - '${PGADMIN_PORT}:80'
-    # user: root used to ensure that the container has full administrative privileges,
-    # necessary when performing actions that require elevated permissions, such as mounting volumes (properly read or write to the mounted volumes), executing certain entrypoint commands, or accessing specific directories from host machine
-    user: root
-    environment:
-      # PGADMIN_DEFAULT_EMAIL and PGADMIN_DEFAULT_PASSWORD - Sets the default credentials for the pgAdmin user
-      - PGADMIN_DEFAULT_EMAIL=admin@dev.com
-      - PGADMIN_DEFAULT_PASSWORD=${POSTGRES_PASSWORD}
-      # PGADMIN_CONFIG_SERVER_MODE - determines whether pgAdmin runs in server mode (multi-user) or desktop mode (single-user). We’re setting it to false, so we won’t be prompted for login credentials
-      - PGADMIN_CONFIG_SERVER_MODE=False
-      # PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED - controls whether a master password is required to access saved server definitions and other sensitive information
-      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+      - "5432:5432"
     volumes:
-      # This setup will ensure that PGAdmin data from inside container is synced to host machine, enabling persistence across container restarts.
-      - '${DATA_DIR}/components/pgadmin:/var/lib/pgadmin'
-      # This setup to make PGAdmin automatically detect and connect to PostgreSQL when it starts (following the config being set in servers.json)
-      - ./scripts/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - postgresql_data:/bitnami/postgresql
+    networks:
+      - data-platform-net
 
-  #=======
+  mongo:
+    image: bitnami/mongodb:latest
+    container_name: mongo
+    restart: unless-stopped
+    environment:
+      - MONGODB_ROOT_PASSWORD=${MONGODB_ROOT_PASSWORD}
+      - MONGODB_USERNAME=${MONGODB_USERNAME}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+      - MONGODB_DATABASE=${MONGODB_DATABASE}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/bitnami/mongodb
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - data-platform-net
 
-  # dev-mongodb:
-    # image: bitnami/mongodb:latest
-    # container_name: dev-mongodb
-    # ports:
-      # - '${MONGO_PORT}:27017'
-    # environment:
-      # - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME}
-      # - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
-      # - MONGO_INITDB_DATABASE=${MONGO_DATABASE}
-      # - MONGODB_ROOT_USER=${MONGO_USERNAME}
-      # - MONGODB_ROOT_PASSWORD=${MONGO_PASSWORD}
-      # - MONGODB_DATABASE=${MONGO_DATABASE}
-    # volumes:
-      # - '${DATA_DIR}/components/mongodb/data:/bitnami/mongodb'
-      # # This line maps ./scripts/mongo-init.sh from host machine to /docker-entrypoint-initdb.d/mongo-init.sh inside container with 'ro' mode (read only mode) which means container can't modify the mounted file
-      # - ./scripts/mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
-      # # - ./scripts/mongo-init.sh:/bitnami/scripts/mongo-init.sh:ro
-
-  # mongo-express:
-    # image: mongo-express:latest
-    # container_name: dev-mongoexpress
-    # depends_on:
-      # - dev-mongodb
-    # ports:
-      # - '${MONGOEXPRESS_PORT}:8081'
-    # environment:
-      # - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
-      # - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_USERNAME}
-      # - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_PASSWORD}
-      # # - ME_CONFIG_MONGODB_SERVER=dev-mongodb
-      # # - ME_CONFIG_MONGODB_PORT=${MONGO_PORT}
-      # - ME_CONFIG_MONGODB_URL=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@dev-mongodb:${MONGO_PORT}/${MONGO_DATABASE}?authSource=admin&ssl=false&directConnection=true
-    # restart: unless-stopped
-    # # 'restart: unless-stopped' restarts a container automatically unless it is explicitly stopped by the user.
-    # # some others: 1. 'no': (Default option if not specified) meaning the container won't automatically restart if it stops or crashes.
-    # #              2. 'always': The container will restart regardless of the reason it stopped, including if Docker is restarted.
-    # #              3. 'on-failure': The container will restart only if it exits with a non-zero status indicating an error. (and won't restart if it stops when completing as short running task and return 0 status).
-
-  #=======
-
-  dev-redis:
+  redis:
     image: bitnami/redis:latest
-    container_name: dev-redis
-    ports:
-      - '${REDIS_PORT}:6379'
+    container_name: redis
+    restart: unless-stopped
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
     volumes:
-      - '${DATA_DIR}/components/redis:/bitnami/redis'
+      - redis_data:/bitnami/redis
     networks:
-      - dev-network
+      - data-platform-net
 
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: dev-redis-commander
-    depends_on:
-      - dev-redis
-    ports:
-      - '${REDIS_COMMANDER_PORT}:8081'
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: kafka
+    restart: unless-stopped
     environment:
-      - REDIS_HOST=dev-redis
-      # While exposed port ${REDIS_PORT} being bind to host network, redis-commander still using internal port 6379 (being use internally inside docker virtual network) to connect to redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - BITNAMI_DEBUG=true
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      # Sets the timezone for the container to "Asia/Jakarta". This ensures that logs and timestamps inside the Kafka container align with the Jakarta timezone.
+      - TZ=Asia/Jakarta
+      # KAFKA_CFG_NODE_ID=0: Identifies the Kafka node with ID 0. This is crucial for multi-node Kafka clusters to distinguish each node uniquely.
+      - KAFKA_CFG_NODE_ID=0
+      # KAFKA_CFG_PROCESS_ROLES=controller,broker: Specifies the roles the Kafka node will perform, in this case, both as a controller (managing cluster metadata) and a broker (handling messages).
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      # KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@<your_host>:9093: Defines the quorum voters for the Kafka controllers. It indicates that node 0 (the current node) acts as a voter for controller decisions and will be accessible at 9093 on <your_host>.
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      # The following lists different listeners for Kafka. Each listener binds a protocol to a specific port:
+      # PLAINTEXT for client connections (:9092). CONTROLLER for internal controller communication (:9093). EXTERNAL for external client access (:9094).SASL_PLAINTEXT for SASL-authenticated clients (:9095).
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094,SASL_PLAINTEXT://:9095
+      # KAFKA_CFG_ADVERTISED_LISTENERS specifies how clients should connect to Kafka externally:
+      # PLAINTEXT at kafka:9092 for internal communication. EXTERNAL at 127.0.0.1:${KAFKA_PORT} (host access). SASL_PLAINTEXT for SASL connections (kafka:9095).
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://127.0.0.1:${KAFKA_PORT},SASL_PLAINTEXT://kafka:9095
+      # The following maps security protocols to each listener. For example, CONTROLLER uses PLAINTEXT, and EXTERNAL uses SASL_PLAINTEXT.
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:SASL_PLAINTEXT,PLAINTEXT:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT
+      # Indicates that the CONTROLLER role should use the CONTROLLER listener for communications.
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      # Specifies users with relevant passwords that can connect to Kafka using SASL authentication
+      - KAFKA_CLIENT_USERS=${KAFKA_USERNAME}
+      - KAFKA_CLIENT_PASSWORDS=${KAFKA_PASSWORD}
+    depends_on:
+      - zookeeper
+    ports:
+      - "${KAFKA_PORT}:9092"
+    volumes:
+      - kafka_data:/bitnami/kafka
     networks:
-      - dev-network
-    # This networks setup is optional, in case not being set, both redis-commader and redis will both be assigned to default docker network (usually named bridge) and still being able to connect each other
+      - data-platform-net
 
-  #=======
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    container_name: zookeeper
+    restart: unless-stopped
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    volumes:
+      - zookeeper_data:/bitnami/zookeeper
+    networks:
+      - data-platform-net
 
-  # dev-kafka:
-    # image: 'bitnami/kafka:latest'
-    # container_name: dev-kafka
-    # ports:
-      # - '${KAFKA_PORT}:9094'
-    # environment:
-      # # Sets the timezone for the container to "Asia/Jakarta". This ensures that logs and timestamps inside the Kafka container align with the Jakarta timezone.
-      # - TZ=Asia/Jakarta
-      # # KAFKA_CFG_NODE_ID=0: Identifies the Kafka node with ID 0. This is crucial for multi-node Kafka clusters to distinguish each node uniquely.
-      # - KAFKA_CFG_NODE_ID=0
-      # # KAFKA_CFG_PROCESS_ROLES=controller,broker: Specifies the roles the Kafka node will perform, in this case, both as a controller (managing cluster metadata) and a broker (handling messages).
-      # - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      # # KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@<your_host>:9093: Defines the quorum voters for the Kafka controllers. It indicates that node 0 (the current node) acts as a voter for controller decisions and will be accessible at 9093 on <your_host>.
-      # - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@<your_host>:9093
-      # # The following lists different listeners for Kafka. Each listener binds a protocol to a specific port:
-      # # PLAINTEXT for client connections (:9092). CONTROLLER for internal controller communication (:9093). EXTERNAL for external client access (:9094).SASL_PLAINTEXT for SASL-authenticated clients (:9095).
-      # - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094,SASL_PLAINTEXT://:9095
-      # # KAFKA_CFG_ADVERTISED_LISTENERS specifies how clients should connect to Kafka externally:
-      # # PLAINTEXT at dev-kafka:9092 for internal communication. EXTERNAL at 127.0.0.1:${KAFKA_PORT} (host access). SASL_PLAINTEXT for SASL connections (kafka:9095).
-      # - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://dev-kafka:9092,EXTERNAL://127.0.0.1:${KAFKA_PORT},SASL_PLAINTEXT://kafka:9095
-      # # The following maps security protocols to each listener. For example, CONTROLLER uses PLAINTEXT, and EXTERNAL uses SASL_PLAINTEXT.
-      # - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:SASL_PLAINTEXT,PLAINTEXT:PLAINTEXT,SASL_PLAINTEXT:SASL_PLAINTEXT
-      # # Indicates that the CONTROLLER role should use the CONTROLLER listener for communications.
-      # - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      # # Specifies users with relevant passwords that can connect to Kafka using SASL authentication
-      # - KAFKA_CLIENT_USERS=${KAFKA_USERNAME}
-      # - KAFKA_CLIENT_PASSWORDS=${KAFKA_PASSWORD}
-    # volumes:
-      # - '${DATA_DIR}/components/kafka/data:/bitnami/kafka/data'
-      # # Maps a local file create-topics.sh from the ./scripts directory to the path /opt/bitnami/kafka/create_topic.sh inside the Kafka container
-      # # This script can be used to automatically create Kafka topics when the container starts
-      # - ./scripts/create-topics.sh:/opt/bitnami/kafka/create_topic.sh:ro
-    # # Following command starts the Kafka server in the background using /opt/bitnami/scripts/kafka/run.sh. then sleep 5 to ensure that the Kafka server is fully up and running.
-    # # Executes the create_topic.sh script, which is used to create Kafka topics. Uses 'wait' to keep the script running until all background processes (like the Kafka server) finish,
-    # command: >
-      # bash -c "
-      # /opt/bitnami/scripts/kafka/run.sh & sleep 5; /opt/bitnami/kafka/create_topic.sh; wait
-      # "
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=${KAFKA_CLUSTER_NAME}
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
+    depends_on:
+      - kafka
+    networks:
+      - data-platform-net
 
-  # kafka-ui:
-    # image: provectuslabs/kafka-ui:latest
-    # container_name: dev-kafka-ui
-    # ports:
-      # - '${KAFKA_UI_PORT}:8080'
-    # environment:
-      # # Sets the name of the Kafka cluster displayed in the UI as "local."
-      # - KAFKA_CLUSTERS_0_NAME=local
-      # # Specifies the address (dev-kafka:9092) for the Kafka broker that the UI should connect to.
-      # - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=dev-kafka:9092
-      # # Uses the provided ${KAFKA_USERNAME} for SASL (Simple Authentication and Security Layer) authentication with the Kafka cluster.
-      # - KAFKA_CLUSTERS_0_SASL_USER=${KAFKA_USERNAME}
-      # # Uses the ${KAFKA_PASSWORD} for authentication with the Kafka broker.
-      # - KAFKA_CLUSTERS_0_SASL_PASSWORD=${KAFKA_PASSWORD}
-      # # Sets the SASL mechanism as 'PLAIN', which is a simple username-password-based authentication method.
-      # - KAFKA_CLUSTERS_0_SASL_MECHANISM=PLAIN
-      # # Configures the communication protocol as SASL_PLAINTEXT, which means it uses SASL for authentication without encryption over plaintext communication.
-      # - KAFKA_CLUSTERS_0_SECURITY_PROTOCOL=SASL_PLAINTEXT
-    # depends_on:
-      # - dev-kafka
-      
   # minio:
     # image: bitnami/minio:latest
-    # ports:
-      # - '9000:9000'
-      # - '9001:9001'
-    # volumes:
-      # - '${DATA_DIR}/components/minio/data:/data'
+    # container_name: minio
+    # restart: unless-stopped
     # environment:
-      # - MINIO_ROOT_USER=username
-      # - MINIO_ROOT_PASSWORD=pasword_is_here
-      # - MINIO_DEFAULT_BUCKETS=name_bucket
-    # restart: always
+      # - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      # - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    # command: server /data --console-address ":9001"
+    # volumes:
+      # - minio_data:/data
+    # ports:
+      # - "9000:9000"
+      # - "9001:9001"
+    # networks:
+      # - data-platform-net
+
+volumes:
+  mysql_data:
+  postgresql_data:
+  mongodb_data:
+  redis_data:
+  kafka_data:
+  zookeeper_data:
+  # minio_data:
 
 networks:
-  dev-network:
+  data-platform-net:
     driver: bridge
