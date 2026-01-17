@@ -1,6 +1,6 @@
-# Kickstart Compose
+# Container Depot
 
-> A curated list of Docker Compose samples.
+> A curated list of quick docker container bootstrap.
 
 These samples provide a start to running a specific platform for software development purposes with Docker Compose.
 
@@ -42,4 +42,5 @@ To stop and remove all containers of the sample application run:
 
 ```console
 docker compose down
+
 ```
