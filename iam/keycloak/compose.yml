@@ -1,7 +1,7 @@
 services:
   keycloak_postgres:
-    container_name: keycloak_postgres
     image: postgres:15
+    container_name: keycloak_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: keycloak
@@ -12,10 +12,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - keycloak_net
+      - ext-net # Attach to the shared network
 
   keycloak:
-    container_name: keycloak_app
     image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak_app
+    hostname: keycloak
     restart: unless-stopped
     environment:
       # Admin user for the admin console (change for production)
@@ -25,18 +27,27 @@ services:
       # instruct Keycloak to accept forwarded headers from the proxy
       # (docs: prefer KC_PROXY_HEADERS / proxy-headers approach — see notes)
       KC_PROXY_HEADERS: xforwarded
+      # Allows HTTP within the private Docker network
+      KC_HTTP_ENABLED: true
       # make Keycloak generate URLs based on incoming headers from proxy
       KC_HOSTNAME_STRICT: false
+      # Specify the files within the container's filesystem
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/certs/keycloak.local.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/certs/keycloak.local.key
       # Database config (Quarkus-based Keycloak uses KC_... envs)
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak_postgres:5432/keycloak
       KC_DB_USERNAME:  ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-    command: ["start", "--optimized"]
+    # command: ["start", "--optimized"]
+    volumes:
+      - "./certs:/opt/keycloak/conf/certs:ro"
+    command: ["start"]
     depends_on:
       - keycloak_postgres
     networks:
       - keycloak_net
+      - ext-net # Attach to the shared network
 
   nginx:
     image: nginx:stable-alpine
@@ -46,8 +57,8 @@ services:
       # - "80:80"
       # - "443:443"
     ports:
-      - "127.0.0.1:8843:8443"
-      - "127.0.0.1:8885:8080"
+      - "18743:8443"
+      - "18885:8080"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./certs:/etc/nginx/certs:ro
@@ -55,11 +66,15 @@ services:
       - keycloak
     networks:
       - keycloak_net
+      - ext-net # Attach to the shared network
 
 networks:
   keycloak_net:
     name: keycloak_net
     driver: bridge
+  ext-net:
+    name: shared-ext-net # External network to connect containers across different compose projects 
+    external: true
 
 volumes:
   postgres_data:

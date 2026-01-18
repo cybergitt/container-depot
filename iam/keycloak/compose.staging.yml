@@ -1,7 +1,7 @@
 services:
   keycloak_postgres:
-    container_name: keycloak_postgres
     image: postgres:15
+    container_name: keycloak_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: keycloak
@@ -12,10 +12,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - keycloak_net
+      - ext-net
 
   keycloak:
-    container_name: keycloak_app
     image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak_app
     restart: unless-stopped
     environment:
       # Admin user for the admin console (change for production)
@@ -37,6 +38,7 @@ services:
       - keycloak_postgres
     networks:
       - keycloak_net
+      - ext-net
 
   nginx:
     image: nginx:stable-alpine
@@ -55,11 +57,15 @@ services:
       - keycloak
     networks:
       - keycloak_net
+      - ext-net
 
 networks:
   keycloak_net:
     name: keycloak_net
     driver: bridge
+  ext-net:
+    name: shared-ext-net # External network to connect containers across different compose projects 
+    external: true
 
 volumes:
   postgres_data:
