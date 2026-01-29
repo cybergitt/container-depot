@@ -9,8 +9,9 @@ These samples provide a start to running a specific platform for software develo
 
 ## Docker Compose Platforms
 
-- [`Bitnami Data Platform`](bitnami-data-platform) - Contains database platforms prepared with Bitnami images
 - [`Data Platform`](data-platform) - Contains database platforms prepared with each Native platform images
+- [`Storage Platform`](storage-platform) - Contains storage platforms prepared with each Native platform images
+- [`IAM`](iam) - Contains Identity Access Management (IAM) platforms prepared with each Native platform images
 
 ## Getting started
 
