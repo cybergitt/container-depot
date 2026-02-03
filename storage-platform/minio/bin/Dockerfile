@@ -20,10 +20,6 @@ RUN git clone https://github.com/minio/minio.git . \
 # =========================
 FROM alpine:3.23
 
-#RUN apk add --no-cache ca-certificates && \
-#    addgroup -S minio -g 1000 && adduser -S minio -u 1000 -G minio
-#RUN apk add --no-cache ca-certificates
-
 # Install minimal runtime deps
 RUN apk add --no-cache ca-certificates curl tzdata \
     && addgroup -S minio \
