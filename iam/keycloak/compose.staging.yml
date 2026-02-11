@@ -12,7 +12,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - keycloak_net
-      - ext-net
+      - ext_net
 
   keycloak:
     image: quay.io/keycloak/keycloak:latest
@@ -38,7 +38,7 @@ services:
       - keycloak_postgres
     networks:
       - keycloak_net
-      - ext-net
+      - ext_net
 
   nginx:
     image: nginx:stable-alpine
@@ -57,14 +57,14 @@ services:
       - keycloak
     networks:
       - keycloak_net
-      - ext-net
+      - ext_net
 
 networks:
   keycloak_net:
     name: keycloak_net
     driver: bridge
-  ext-net:
-    name: shared-ext-net # External network to connect containers across different compose projects 
+  ext_net:
+    name: shared_ext_net # External network to connect containers across different compose projects 
     external: true
 
 volumes:
