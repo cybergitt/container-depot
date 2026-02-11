@@ -19,13 +19,13 @@ services:
     container_name: keycloak_app
     restart: unless-stopped
     ports:
-      # - "8015:8080" # Hide HTTP port
-      - "18743:8443" # Expose the HTTPS port
+      # - "127.0.0.1:8015:8080" # Hide HTTP port
+      - "127.0.0.1:18743:8443" # Expose the HTTPS port
     environment:
       # Admin user for the admin console (change for production)
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_USER}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_PASSWORD}
-      KC_HOSTNAME: ${KEYCLOAK_URL}
+      # KC_HOSTNAME: ${KEYCLOAK_URL}
       # Specify the files within the container's filesystem
       KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/certs/keycloak.local.crt
       KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/certs/keycloak.local.key

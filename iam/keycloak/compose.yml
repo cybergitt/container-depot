@@ -24,6 +24,8 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_USER}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_PASSWORD}
       KC_HOSTNAME: ${KEYCLOAK_URL}
+      KC_HOSTNAME_PORT: ${KEYCLOAK_PORT} # Specify the non-standard port exposed by Nginx
+      KC_PROXY: edge # Important: Keycloak is behind a reverse proxy
       # instruct Keycloak to accept forwarded headers from the proxy
       # (docs: prefer KC_PROXY_HEADERS / proxy-headers approach — see notes)
       KC_PROXY_HEADERS: xforwarded
@@ -57,8 +59,8 @@ services:
       # - "80:80"
       # - "443:443"
     ports:
-      - "127.0.0.1:18743:8443"
-      - "127.0.0.1:18885:8080"
+      - "18885:80"
+      - "18743:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./certs:/etc/nginx/certs:ro
